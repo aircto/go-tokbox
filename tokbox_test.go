@@ -24,11 +24,11 @@ func TestTokboxCreateSession(t *testing.T) {
 
 func TestTokboxJwtToken(t *testing.T) {
 	tok := New(testKey, testSecret)
-	token1, err := tok.jwtToken()
+	token1, err := tok.Token()
 	if err != nil {
 		t.Errorf("expected nil error, got %q", err)
 	}
-	token2, err := tok.jwtToken()
+	token2, err := tok.Token()
 	if err != nil {
 		t.Errorf("expected nil error, got %q", err)
 	}

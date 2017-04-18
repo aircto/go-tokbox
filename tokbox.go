@@ -37,7 +37,7 @@ func New(key, secret string) *Tokbox {
 // It takes nothing and return a session instance.
 func (t *Tokbox) CreateSession() (*Session, error) {
 	url := apiURL + "/session/create"
-	token, err := t.jwtToken()
+	token, err := t.Token()
 	if err != nil {
 		return nil, err
 	}
@@ -62,11 +62,11 @@ func (t *Tokbox) CreateSession() (*Session, error) {
 
 // jwtToken generates unique jwt token every time its called.
 // Its used make any api request to tokbox REST API.
-func (t *Tokbox) jwtToken() (string, error) {
+func (t *Tokbox) Token() (string, error) {
 	claims := jwt.StandardClaims{
 		Issuer:    t.key,
 		IssuedAt:  time.Now().UTC().Unix(),
-		ExpiresAt: time.Now().UTC().Unix() + 180,
+		ExpiresAt: time.Now().UTC().Unix() + (2 * 24 * 60 * 60), // 2 hours
 		Id:        string(uuid.NewV4()),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
