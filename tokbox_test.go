@@ -9,22 +9,30 @@ const (
 
 func TestTokboxCreateSession(t *testing.T) {
 	tok := New(testKey, testSecret)
-	if tok.CreateSession() == nil {
-		t.Errorf("expected non-nil, but got nil")
+	session, err := tok.CreateSession()
+	if err != nil {
+		t.Errorf("expected nil err, but got %q", err)
 	}
+	if session.ID == "" {
+		t.Errorf("expected non-empty id")
+	}
+	if session.ProjectID == "" {
+		t.Errorf("expected non-empty project-id")
+	}
+
 }
 
 func TestTokboxJwtToken(t *testing.T) {
 	tok := New(testKey, testSecret)
 	token1, err := tok.jwtToken()
 	if err != nil {
-		t.Errorf("expected nil error, got %v", err)
+		t.Errorf("expected nil error, got %q", err)
 	}
 	token2, err := tok.jwtToken()
 	if err != nil {
-		t.Errorf("expected nil error, got %v", err)
+		t.Errorf("expected nil error, got %q", err)
 	}
 	if token1 == token2 {
-		t.Errorf("expected unique token, got %v, %v", token1, token2)
+		t.Errorf("expected unique token, got %q, %q", token1, token2)
 	}
 }
