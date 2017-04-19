@@ -3,7 +3,6 @@ package tokbox
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -78,9 +77,9 @@ func (t *Tokbox) Token() (string, error) {
 	return token.SignedString([]byte(t.secret))
 }
 
+// Archives returns a list of archived media for a given sessionID.
 func (t *Tokbox) Archives(sessionID string) ([]Archive, error) {
 	url := apiURL + "/v2/project/" + t.key + "/archive?sessionId=" + sessionID
-	fmt.Println(url)
 	token, err := t.Token()
 	if err != nil {
 		return nil, err
