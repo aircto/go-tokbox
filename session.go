@@ -17,9 +17,9 @@ type Session struct {
 	MediaServerURL string    `json:"media_server_url"`
 }
 
-func (s *Session) Token(key, secret string) (string, error) {
+func (s *Session) Token(key, secret string) string {
 	now := time.Now().Unix()
-	expire := now + 3600
+	expire := now + (2 * 3600)
 	ran := rand.Intn(999999)
 
 	payload := fmt.Sprintf("create_time=%d&session_id=%s&nonce=%d&expire_time=%d&connection_data=None&role=publisher", now, s.ID, ran, expire)
@@ -30,7 +30,7 @@ func (s *Session) Token(key, secret string) (string, error) {
 
 	encoded := base64.StdEncoding.EncodeToString([]byte(data))
 
-	return "T1==" + encoded, nil
+	return "T1==" + encoded
 }
 
 func (s *Session) sign(payload, secret string) string {
