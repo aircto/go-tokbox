@@ -1,6 +1,11 @@
 package tokbox
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 const (
 	testKey    = "45822722"
@@ -35,4 +40,13 @@ func TestTokboxJwtToken(t *testing.T) {
 	if token1 == token2 {
 		t.Errorf("expected unique token, got %q, %q", token1, token2)
 	}
+}
+
+func TestTokboxArchive(t *testing.T) {
+	tok := New(testKey, testSecret)
+	session, err := tok.CreateSession()
+	require.NoError(t, err)
+	archives, err := tok.Archives(session.ID)
+	require.NoError(t, err)
+	fmt.Println(archives)
 }

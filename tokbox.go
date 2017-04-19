@@ -41,13 +41,18 @@ func (t *Tokbox) CreateSession() (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("Token", token)
 	headers := map[string]string{
 		"X-OPENTOK-AUTH": token,
 	}
-	res, err := t.MakeRequest("POST", url, headers, map[string]string{})
+	res, err := t.MakeRequest("POST", url, headers, map[string]string{
+		"archiveMode": "always",
+	})
 	if err != nil {
 		return nil, errors.Wrap(err, "newrequest")
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return nil, errors.New("create session failed " + res.Status)
 	}
 
 	var s []Session // must be a list according to docs. https://tokbox.com/developer/rest/#session_id_production
@@ -71,6 +76,34 @@ func (t *Tokbox) Token() (string, error) {
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(t.secret))
+}
+
+func (t *Tokbox) Archives(sessionID string) ([]Archive, error) {
+	url := apiURL + "/v2/project/" + t.key + "/archive?sessionId=" + sessionID
+	fmt.Println(url)
+	token, err := t.Token()
+	if err != nil {
+		return nil, err
+	}
+	headers := map[string]string{
+		"X-OPENTOK-AUTH": token,
+	}
+	res, err := t.MakeRequest("GET", url, headers, nil)
+	if err != nil {
+		return nil, err
+	}
+	if res.StatusCode != http.StatusOK {
+		return nil, errors.New("retrieve archive list failed. " + res.Status)
+	}
+	jResp := struct {
+		Count int       `json:"count"`
+		Items []Archive `json:"items"`
+	}{}
+
+	if err := json.NewDecoder(res.Body).Decode(&jResp); err != nil {
+		return nil, errors.Wrap(err, "archive decode")
+	}
+	return jResp.Items, nil
 }
 
 // NewRequest create a single http.Request based on url, headers and body that needs
