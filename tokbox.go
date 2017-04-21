@@ -69,10 +69,9 @@ func (t *Tokbox) CreateSession() (Session, error) {
 	// NOTE(kaviraj): According to create session doc. Tokbox returns list of sessions
 	// even it creates just one session
 	var sessions []Session
-	err := t.MakeRequest("POST", url, map[string]string{
+	if err := t.MakeRequest("POST", url, map[string]string{
 		"archiveMode": "manual",
-	}, &sessions)
-	if err != nil {
+	}, &sessions); err != nil {
 		return Session{}, err
 	}
 
@@ -100,8 +99,7 @@ func (t *Tokbox) Archives(sessionID string) ([]Archive, error) {
 	url := baseURL + "/" + apiVersion + "/project/" + t.key + "/archive?sessionId=" + sessionID
 
 	var archives ArchiveList
-	err := t.MakeRequest("GET", url, nil, &archives)
-	if err != nil {
+	if err := t.MakeRequest("GET", url, nil, &archives); err != nil {
 		return nil, err
 	}
 
@@ -114,12 +112,11 @@ func (t *Tokbox) StartArchive(sessionID, name string) (Archive, error) {
 	url := baseURL + "/" + apiVersion + "/project/" + t.key + "/archive/"
 
 	var archive Archive
-	err := t.MakeRequest("POST", url, map[string]string{
+	if err := t.MakeRequest("POST", url, map[string]string{
 		"sessionId":  sessionID,
 		"name":       name,
 		"outputMode": "composed",
-	}, &archive)
-	if err != nil {
+	}, &archive); err != nil {
 		return Archive{}, err
 	}
 
@@ -131,8 +128,7 @@ func (t *Tokbox) StartArchive(sessionID, name string) (Archive, error) {
 func (t *Tokbox) StopArchive(archiveID string) (Archive, error) {
 	url := baseURL + "/" + apiVersion + "/project/" + t.key + "/archive/" + archiveID + "/stop/"
 	var archive Archive
-	err := t.MakeRequest("POST", url, nil, &archive)
-	if err != nil {
+	if err := t.MakeRequest("POST", url, nil, &archive); err != nil {
 		return Archive{}, err
 	}
 	return archive, nil
@@ -182,8 +178,7 @@ func (t *Tokbox) parseError(resp *http.Response) error {
 	defer resp.Body.Close()
 
 	tErr := new(Error)
-	err = json.Unmarshal(resBody, tErr)
-	if err != nil {
+	if err = json.Unmarshal(resBody, tErr); err != nil {
 		return errors.New("error in json body" + string(resBody))
 	}
 	return tErr
