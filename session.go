@@ -30,7 +30,7 @@ func (s *Session) Token(key, secret string) string {
 
 	encoded := base64.StdEncoding.EncodeToString([]byte(data))
 
-	return "T1==" + encoded
+	return tokenSentinel + encoded
 }
 
 func (s *Session) sign(payload, secret string) string {

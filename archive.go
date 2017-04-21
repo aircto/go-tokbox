@@ -15,3 +15,9 @@ type Archive struct {
 	Status    string `json:"status"`
 	URL       string `json:"url"`
 }
+
+// ArchiveList represents single response of archive list endpoint
+type ArchiveList struct {
+	Count int       `json:"count"`
+	Items []Archive `json:"items"`
+}

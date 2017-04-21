@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
@@ -14,7 +15,35 @@ import (
 )
 
 const (
-	baseURL = "https://api.opentok.com"
+	baseURL       = "https://api.opentok.com"
+	tokenSentinel = "T1=="
+	apiVersion    = "v2"
+)
+
+// ArchiveMode denotes different modes for an archive as per doc.
+// https://tokbox.com/developer/rest/#start_archive
+type ArchiveMode string
+
+const (
+	ArchiveModeManual ArchiveMode = "manual"
+	ArchiveModeAlways ArchiveMode = "always"
+)
+
+// ArchiveOutputMode lists a valid output mode for an archive
+type ArchiveOutputMode string
+
+const (
+	ArchiveOutputModeComposed   ArchiveOutputMode = "composed"
+	ArchiveOutputModeIndividual ArchiveOutputMode = "individual"
+)
+
+// Role is a list of valid token for an token
+type Role string
+
+const (
+	RoleModerator  string = "moderator"
+	RolePublisher  string = "publisher"
+	RoleSubscriber string = "subscriber"
 )
 
 // Tokbox represents a main tokbox type that wraps the REST API.
@@ -34,42 +63,28 @@ func New(key, secret string) *Tokbox {
 
 // CreateSession creates a unique session, to which clients can connect to.
 // It takes nothing and return a session instance.
-func (t *Tokbox) CreateSession() (*Session, error) {
+func (t *Tokbox) CreateSession() (Session, error) {
 	url := baseURL + "/session/create"
-	token, err := t.Token()
-	if err != nil {
-		return nil, err
-	}
-	headers := map[string]string{
-		"X-OPENTOK-AUTH": token,
-	}
-	res, err := t.MakeRequest("POST", url, headers, map[string]string{
+
+	// NOTE(kaviraj): According to create session doc. Tokbox returns list of sessions
+	// even it creates just one session
+	var sessions []Session
+	err := t.MakeRequest("POST", url, map[string]string{
 		"archiveMode": "manual",
-	})
+	}, &sessions)
 	if err != nil {
-		return nil, errors.Wrap(err, "newrequest")
+		return Session{}, err
 	}
 
-	// b, _ := ioutil.ReadAll(res.Body)
-	// fmt.Println(string(b))
-
-	if res.StatusCode != http.StatusOK {
-		return nil, errors.New("create session failed " + res.Status)
+	if len(sessions) != 1 {
+		return Session{}, errors.New("api returned more than 1 responses.")
 	}
-
-	var s []Session // must be a list according to docs. https://tokbox.com/developer/rest/#session_id_production
-	if err := json.NewDecoder(res.Body).Decode(&s); err != nil {
-		return nil, errors.Wrap(err, "decoding")
-	}
-	if len(s) != 1 {
-		return nil, errors.New("api returned more than 1 responses.")
-	}
-	return &s[0], nil
+	return sessions[0], nil
 }
 
 // jwtToken generates unique jwt token every time its called.
 // Its used make any api request to tokbox REST API.
-func (t *Tokbox) Token() (string, error) {
+func (t *Tokbox) jwtToken() (string, error) {
 	claims := jwt.StandardClaims{
 		Issuer:    t.key,
 		IssuedAt:  time.Now().UTC().Unix(),
@@ -83,67 +98,29 @@ func (t *Tokbox) Token() (string, error) {
 // Archives returns a list of archived media for a given sessionID.
 func (t *Tokbox) Archives(sessionID string) ([]Archive, error) {
 	url := baseURL + "/v2/project/" + t.key + "/archive?sessionId=" + sessionID
-	token, err := t.Token()
-	if err != nil {
-		return nil, err
-	}
-	headers := map[string]string{
-		"X-OPENTOK-AUTH": token,
-	}
-	res, err := t.MakeRequest("GET", url, headers, nil)
-	if err != nil {
-		return nil, err
-	}
-	// b, _ := ioutil.ReadAll(res.Body)
-	// fmt.Println(string(b))
-	if res.StatusCode != http.StatusOK {
-		return nil, errors.New("retrieve archive list failed. " + res.Status)
-	}
-	jResp := struct {
-		Count int       `json:"count"`
-		Items []Archive `json:"items"`
-	}{}
 
-	if err := json.NewDecoder(res.Body).Decode(&jResp); err != nil {
-		return nil, errors.Wrap(err, "archive decode")
+	var archives ArchiveList
+	err := t.MakeRequest("GET", url, nil, &archives)
+	if err != nil {
+		return nil, err
 	}
-	return jResp.Items, nil
+
+	return archives.Items, nil
 }
 
 // StartArchive starts archiving the session for the given sessionID with the given
 // name.
 func (t *Tokbox) StartArchive(sessionID, name string) (Archive, error) {
 	url := baseURL + "/v2/project/" + t.key + "/archive/"
-	token, err := t.Token()
-	if err != nil {
-		return Archive{}, err
-	}
-	headers := map[string]string{
-		"X-OPENTOK-AUTH": token,
-		"Content-Type":   "application/json",
-	}
-	res, err := t.MakeRequest("POST", url, headers, map[string]string{
+
+	var archive Archive
+	err := t.MakeRequest("POST", url, map[string]string{
 		"sessionId":  sessionID,
 		"name":       name,
 		"outputMode": "composed",
-	})
+	}, &archive)
 	if err != nil {
 		return Archive{}, err
-	}
-	// b, _ := ioutil.ReadAll(res.Body)
-	// fmt.Println(string(b))
-	if res.StatusCode != http.StatusOK {
-		resp := struct {
-			Message string `json:"message"`
-		}{}
-		if err := json.NewDecoder(res.Body).Decode(&resp); err != nil {
-			return Archive{}, err
-		}
-		return Archive{}, errors.New("start archive failed. " + res.Status + " " + resp.Message)
-	}
-	var archive Archive
-	if err := json.NewDecoder(res.Body).Decode(&archive); err != nil {
-		return Archive{}, errors.Wrap(err, "start-archive decode")
 	}
 
 	return archive, nil
@@ -152,42 +129,22 @@ func (t *Tokbox) StartArchive(sessionID, name string) (Archive, error) {
 // StopArchive stops the particualr archive for the given archiveID.
 // any non-nil error denotes archiving stopped failed.
 func (t *Tokbox) StopArchive(archiveID string) (Archive, error) {
-	url := baseURL + "/v2/project/" + t.key + "/archive/" + archiveID + "/stop/"
-	token, err := t.Token()
-	if err != nil {
-		return Archive{}, err
-	}
-	headers := map[string]string{
-		"X-OPENTOK-AUTH": token,
-	}
-	res, err := t.MakeRequest("POST", url, headers, nil)
-	if err != nil {
-		return Archive{}, err
-	}
-	// b, _ := ioutil.ReadAll(res.Body)
-	// fmt.Println(string(b))
-	if res.StatusCode != http.StatusOK {
-		return Archive{}, errors.New("stop archive failed. " + res.Status)
-	}
+	url := baseURL + "/" + apiVersion + "/project/" + t.key + "/archive/" + archiveID + "/stop/"
 	var archive Archive
-	if err := json.NewDecoder(res.Body).Decode(&archive); err != nil {
-		return Archive{}, errors.Wrap(err, "stop-archive decode")
+	err := t.MakeRequest("POST", url, nil, &archive)
+	if err != nil {
+		return Archive{}, err
 	}
-
 	return archive, nil
 }
 
 // NewRequest create a single http.Request based on url, headers and body that needs
 // to be encoded. Returns the http.Response. any non-nil error means request is
 // unsuccessfull.
-func (t *Tokbox) MakeRequest(
-	method, urlStr string,
-	headers map[string]string,
-	body interface{},
-) (*http.Response, error) {
+func (t *Tokbox) MakeRequest(method, urlStr string, body interface{}, v interface{}) error {
 	rel, err := url.Parse(urlStr)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	var buf io.ReadWriter
@@ -195,18 +152,39 @@ func (t *Tokbox) MakeRequest(
 		buf = &bytes.Buffer{}
 		err := json.NewEncoder(buf).Encode(body)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 	req, err := http.NewRequest(method, rel.String(), buf)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	req.Header.Set("Accept", "application/json")
-
-	for k, v := range headers {
-		req.Header.Set(k, v)
+	token, err := t.jwtToken()
+	if err != nil {
+		return err
 	}
-	return http.DefaultClient.Do(req)
+	req.Header.Set("X-OPENTOK-AUTH", token)
+
+	res, err := http.DefaultClient.Do(req)
+
+	if res.StatusCode > 400 {
+		return t.parseError(res)
+	}
+
+	return json.NewDecoder(res.Body).Decode(v)
+
+}
+
+func (t *Tokbox) parseError(resp *http.Response) error {
+	resBody, err := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
+
+	tErr := new(Error)
+	err = json.Unmarshal(resBody, tErr)
+	if err != nil {
+		return errors.New("error in json body" + string(resBody))
+	}
+	return tErr
 }
