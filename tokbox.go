@@ -165,7 +165,7 @@ func (t *Tokbox) MakeRequest(method, urlStr string, body interface{}, v interfac
 
 	res, err := http.DefaultClient.Do(req)
 
-	if res.StatusCode > 400 {
+	if res.StatusCode >= 400 {
 		return t.parseError(res)
 	}
 
@@ -174,7 +174,7 @@ func (t *Tokbox) MakeRequest(method, urlStr string, body interface{}, v interfac
 }
 
 // parseError returns the valid tokbox error if any of the response have status code
-// greater than 400.
+// greater than equal to 400.
 func (t *Tokbox) parseError(resp *http.Response) error {
 	resBody, err := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
