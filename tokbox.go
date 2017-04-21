@@ -97,7 +97,7 @@ func (t *Tokbox) jwtToken() (string, error) {
 
 // Archives returns a list of archived media for a given sessionID.
 func (t *Tokbox) Archives(sessionID string) ([]Archive, error) {
-	url := baseURL + "/v2/project/" + t.key + "/archive?sessionId=" + sessionID
+	url := baseURL + "/" + apiVersion + "/project/" + t.key + "/archive?sessionId=" + sessionID
 
 	var archives ArchiveList
 	err := t.MakeRequest("GET", url, nil, &archives)
@@ -111,7 +111,7 @@ func (t *Tokbox) Archives(sessionID string) ([]Archive, error) {
 // StartArchive starts archiving the session for the given sessionID with the given
 // name.
 func (t *Tokbox) StartArchive(sessionID, name string) (Archive, error) {
-	url := baseURL + "/v2/project/" + t.key + "/archive/"
+	url := baseURL + "/" + apiVersion + "/project/" + t.key + "/archive/"
 
 	var archive Archive
 	err := t.MakeRequest("POST", url, map[string]string{
