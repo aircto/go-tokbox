@@ -3,6 +3,7 @@ package tokbox
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -157,6 +158,8 @@ func (t *Tokbox) MakeRequest(method, urlStr string, body interface{}, v interfac
 	}
 
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+
 	token, err := t.jwtToken()
 	if err != nil {
 		return err
@@ -165,12 +168,16 @@ func (t *Tokbox) MakeRequest(method, urlStr string, body interface{}, v interfac
 
 	res, err := http.DefaultClient.Do(req)
 
+	fmt.Println(res.StatusCode)
+
 	if res.StatusCode >= 400 {
 		return t.parseError(res)
 	}
-
-	return json.NewDecoder(res.Body).Decode(v)
-
+	b, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, v)
 }
 
 // parseError returns the valid tokbox error if any of the response have status code
