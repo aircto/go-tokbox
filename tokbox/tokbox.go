@@ -69,7 +69,7 @@ func (t *Tokbox) CreateSession() (Session, error) {
 	// NOTE(kaviraj): According to create session doc. Tokbox returns list of sessions
 	// even it creates just one session
 	var sessions []Session
-	if err := t.MakeRequest("POST", url, map[string]string{
+	if err := t.MakeRequest("POST", url, map[string]string{"Accept": "application/json"}, map[string]string{
 		"archiveMode": "manual",
 	}, &sessions); err != nil {
 		return Session{}, err
@@ -99,7 +99,7 @@ func (t *Tokbox) Archives(sessionID string) ([]Archive, error) {
 	url := baseURL + "/" + apiVersion + "/project/" + t.key + "/archive?sessionId=" + sessionID
 
 	var archives ArchiveList
-	if err := t.MakeRequest("GET", url, nil, &archives); err != nil {
+	if err := t.MakeRequest("GET", url, nil, nil, &archives); err != nil {
 		return nil, err
 	}
 
@@ -112,7 +112,7 @@ func (t *Tokbox) StartArchive(sessionID, name string) (Archive, error) {
 	url := baseURL + "/" + apiVersion + "/project/" + t.key + "/archive/"
 
 	var archive Archive
-	if err := t.MakeRequest("POST", url, map[string]string{
+	if err := t.MakeRequest("POST", url, map[string]string{"Content-Type": "application/json"}, map[string]string{
 		"sessionId":  sessionID,
 		"name":       name,
 		"outputMode": "composed",
@@ -128,7 +128,7 @@ func (t *Tokbox) StartArchive(sessionID, name string) (Archive, error) {
 func (t *Tokbox) StopArchive(archiveID string) (Archive, error) {
 	url := baseURL + "/" + apiVersion + "/project/" + t.key + "/archive/" + archiveID + "/stop/"
 	var archive Archive
-	if err := t.MakeRequest("POST", url, nil, &archive); err != nil {
+	if err := t.MakeRequest("POST", url, nil, nil, &archive); err != nil {
 		return Archive{}, err
 	}
 	return archive, nil
@@ -137,7 +137,7 @@ func (t *Tokbox) StopArchive(archiveID string) (Archive, error) {
 // NewRequest create a single http.Request based on url, headers and body that needs
 // to be encoded. Returns the http.Response. any non-nil error means request is
 // unsuccessfull.
-func (t *Tokbox) MakeRequest(method, urlStr string, body interface{}, v interface{}) error {
+func (t *Tokbox) MakeRequest(method, urlStr string, headers map[string]string, body interface{}, v interface{}) error {
 	rel, err := url.Parse(urlStr)
 	if err != nil {
 		return err
@@ -155,10 +155,11 @@ func (t *Tokbox) MakeRequest(method, urlStr string, body interface{}, v interfac
 	if err != nil {
 		return err
 	}
-
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Content-Type", "application/json")
-
+	if headers != nil {
+		for k, v := range headers {
+			req.Header.Set(k, v)
+		}
+	}
 	token, err := t.jwtToken()
 	if err != nil {
 		return err
