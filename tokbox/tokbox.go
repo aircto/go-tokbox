@@ -3,7 +3,6 @@ package tokbox
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -167,8 +166,6 @@ func (t *Tokbox) MakeRequest(method, urlStr string, body interface{}, v interfac
 	req.Header.Set("X-OPENTOK-AUTH", token)
 
 	res, err := http.DefaultClient.Do(req)
-
-	fmt.Println(res.StatusCode)
 
 	if res.StatusCode >= 400 {
 		return t.parseError(res)
